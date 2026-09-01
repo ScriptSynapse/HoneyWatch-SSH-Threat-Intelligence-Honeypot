@@ -1,0 +1,13 @@
+# Dependencies for the HoneyWatch backend (honeypot.py + ws_server.py).
+# Install these on the VPS/server that will run the backend — NOT on Vercel.
+#
+#   python3 -m venv venv
+#   source venv/bin/activate      # Windows: venv\Scripts\activate
+#   pip install -r requirements.txt
+
+paramiko>=3.4          # SSH server implementation used by honeypot.py
+aiohttp>=3.9            # HTTP + WebSocket API server (ws_server.py)
+bcrypt>=4.1              # password hashing (auth.py)
+PyJWT>=2.8               # session tokens (auth.py)
+requests>=2.31           # GeoIP / AbuseIPDB lookups (threat_intel.py), alert webhooks (alerts.py)
+reportlab>=4.1           # PDF report generation (report_gen.py)
