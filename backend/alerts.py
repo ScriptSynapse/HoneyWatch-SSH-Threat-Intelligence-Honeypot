@@ -4,11 +4,10 @@ import logging
 import threading
 import time
 import os
-from collections import defaultdict, deque
+from collections import deque
 from datetime import datetime, timezone, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from pathlib import Path
 
 import requests
 

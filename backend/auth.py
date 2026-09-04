@@ -2,9 +2,8 @@ import os
 import json
 import time
 import secrets
-import hashlib
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
 import bcrypt

@@ -7,7 +7,7 @@ import json
 import time
 import logging
 import threading
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from collections import defaultdict, deque
 
 import requests

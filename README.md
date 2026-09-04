@@ -1,80 +1,77 @@
-# 🍯 HoneyWatch — SSH Honeypot + Threat Intelligence Platform
+# 🍯 HoneyWatch — SSH Honeypot & Threat Intelligence Platform
 
-A dashboard for an SSH honeypot: stateful shell emulation, GeoIP enrichment,
-attack-pattern detection, malware capture, a real-time WebSocket feed, and a
-world-map view of attacker origins.
+HoneyWatch is a fake SSH server that logs everything an attacker does to it,
+enriches every connection with GeoIP and abuse-reputation data, and shows the
+result on a live dashboard: a world map of attacker origins, credential and
+command feeds, malware captures, and downloadable PDF reports.
 
-## Read this first: what Vercel can and can't run here
+It ships in two parts, deployed to two different places:
 
-**Vercel cannot host the actual honeypot.** `honeypot.py` opens a real TCP
-socket and waits for SSH connections 24/7; `ws_server.py` keeps a persistent
-WebSocket open to push live events. Both need a process that stays running
-indefinitely on a fixed port. Vercel only runs short-lived serverless
-functions that start on a request and shut down after — there's no way to
-`bind()` a long-lived listener there, for SSH or for WebSockets.
-
-So this repo is split in two, and that split is the fix:
-
-| Folder | What it is | Where it runs |
+| Part | What it does | Runs on |
 |---|---|---|
-| **`index.html`** + **`api/`** | The dashboard UI, plus two small serverless functions that hand it a realistic sample dataset | **Vercel** |
-| **`backend/`** | The real SSH honeypot, the SQLite database, the WebSocket/API server, alerting, PDF reports | **A VPS or any always-on machine you control** |
+| **Dashboard** (`index.html`, `api/`) | The UI, plus two tiny serverless functions that hand it a sample dataset so it works with zero setup | **Vercel** (or any static host) |
+| **Backend** (`backend/`) | The real SSH honeypot, SQLite database, WebSocket/API server, alerting, PDF reports | **A VPS or any machine you leave running** |
 
-Deploy `index.html`/`api/` to Vercel and you get a fully working, publicly
-reachable dashboard the moment it builds — no server, no database, no signup,
-browsing sample attack data out of the box. If you also want it to show your
-own honeypot's live traffic, run `backend/` on a VPS (instructions below) and
-point the dashboard at it. That part was always going to need a real server;
-no amount of Vercel configuration changes that.
-
-*(This also explains a real bug in the original dashboard: its JavaScript only
-ever tried to reach `http://localhost:PORT` for its API and WebSocket calls.
-Deployed anywhere other than your own laptop, that always fails silently and
-the dashboard falls back to sample data — permanently. That's fixed here: the
-dashboard now resolves, in order, a backend URL you configure → a local
-`ws_server.py` on `localhost` for development → this deployment's own `/api/*`
-sample-data functions → and only then the fully offline embedded fallback.)*
+That split isn't optional — it's a consequence of what each side can do.
+Vercel runs short-lived serverless functions that start on a request and exit
+right after; there's no way for it to keep a TCP socket open for incoming SSH
+connections or hold a WebSocket open for a live feed. A real honeypot needs a
+process that's still listening at 3 a.m. when someone tries `root`/`admin`
+against it, so that part has to live on a server you control.
 
 ---
 
-## 1. Deploy the dashboard to Vercel
+## Quick start — dashboard only (2 minutes, no server)
 
 ```bash
 npm i -g vercel        # if you don't have it
-vercel                 # from the repo root; accept the defaults
+vercel                 # from the repo root, accept the defaults
 ```
 
-Or connect the GitHub repo at [vercel.com/new](https://vercel.com/new) — no
-build command, no output directory, no environment variables required. Vercel
-will serve `index.html` as the site and `api/stats.py` / `api/alerts.py` as
-Python serverless functions automatically because they live in `api/`.
+Or connect the repo at [vercel.com/new](https://vercel.com/new) — no build
+command, no output directory, no environment variables needed. Vercel serves
+`index.html` as the site and turns `api/stats.py` / `api/alerts.py` into
+Python serverless functions automatically because they live under `api/`.
 
-Log in with **anything** (any username/password) and you'll see the sample
-dataset. Use `admin` / `honeywatch` specifically to force the fully offline,
-no-network demo mode instead.
+Log in with **anything** — the login form only gates access to the demo UI
+here, it isn't checking a real password — and you'll see a realistic sample
+dataset: ~8,600 login attempts, 15 attacker IPs across 10 countries, a
+malware download feed, and a full world map. This is fixed sample data (see
+`data/demo_snapshot.json`), not live traffic; there is no honeypot running
+behind a bare Vercel deploy.
 
-## 2. (Optional) Run the real honeypot and point the dashboard at it
+## Full setup — real honeypot feeding the dashboard
 
-This is the part that needs a real, always-on server — a $5–6/mo VPS
-(DigitalOcean, Linode, Hetzner, etc.) works fine.
+This is the part that needs an always-on box — a $5–6/mo VPS (DigitalOcean,
+Linode, Hetzner, etc.) is plenty.
 
 ```bash
 # On your VPS
-git clone <this-repo-url> honeywatch && cd honeywatch/backend
+git clone https://github.com/ScriptSynapse/HoneyWatch-SSH-Threat-Intelligence-Honeypot.git
+cd HoneyWatch-SSH-Threat-Intelligence-Honeypot/backend
+
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
-python seed_logs.py     # optional: pre-populate 14 days of demo data
-python ws_server.py     # starts the API + WebSocket server (prints its port)
+python seed_logs.py     # optional: pre-populate ~14 days of realistic demo data
+python ws_server.py     # API + WebSocket server — prints the port it picked
 
-# in a second terminal/session
+# in a second terminal
 python honeypot.py      # the actual SSH honeypot, listens on port 2222 by default
 ```
 
-Put a TLS reverse proxy (Caddy, nginx + certbot) in front of `ws_server.py`'s
-port so it's reachable at `https://your-domain`. This matters: your Vercel
-dashboard is served over HTTPS, and browsers block a HTTPS page from calling
-a plain `http://` API (mixed content). A one-line Caddyfile is enough:
+`ws_server.py` also serves the dashboard itself, so open the URL it prints
+(e.g. `http://localhost:8080`) rather than opening `dashboard.html` directly
+as a `file://` path — browsers block the API/WebSocket calls under `file://`.
+Default login is `admin` / `honeywatch`; the server logs a warning about this
+on first run, and you should change it before exposing anything publicly
+(see [Security](#security-checklist) below).
+
+### Pointing the Vercel dashboard at your real honeypot
+
+Put a TLS reverse proxy in front of `ws_server.py` so it's reachable over
+HTTPS — the Vercel dashboard is served over HTTPS, and browsers block an
+HTTPS page from calling a plain `http://` API. A minimal Caddyfile:
 
 ```
 your-domain.example.com {
@@ -82,16 +79,13 @@ your-domain.example.com {
 }
 ```
 
-Then, on the Vercel-hosted dashboard's login screen, put
+Then, on the Vercel dashboard's login screen, enter
 `https://your-domain.example.com` in the **Backend URL** field and log in
-with the real credentials (default `admin` / `honeywatch` — **change this
-immediately**, see below). The dashboard will now show your honeypot's actual
-traffic, polling `/api/stats` every 30s and upgrading to a live WebSocket feed
-automatically. The Backend URL is remembered in your browser (`localStorage`)
-so you only enter it once.
+with your real credentials. The dashboard now polls `/api/stats` every 30s
+and upgrades to a live WebSocket feed automatically. The Backend URL is
+remembered in your browser so you only enter it once.
 
-For running the honeypot itself continuously, use the provided systemd unit
-(adjust paths/user first):
+### Keeping it running
 
 ```ini
 # /etc/systemd/system/honeywatch.service
@@ -115,36 +109,29 @@ WantedBy=multi-user.target
 sudo systemctl enable --now honeywatch
 ```
 
-Run `ws_server.py` the same way as a second unit (or under `screen`/`tmux`
-while you're testing).
+Set up a second unit the same way for `ws_server.py` (or run it under
+`screen`/`tmux` while testing). On Windows, `setup_and_run_v2.bat` /
+`setup_and_run_v2.ps1` in `backend/` handle dependency install, database
+seeding, and launching `ws_server.py` in one step.
 
-### Security — do this before exposing it publicly
+### Security checklist
 
-- **Change the default login immediately**: `python auth.py passwd admin <new-password>` (12+ chars). The default is `admin` / `honeywatch`, printed as a warning in the logs on first run — treat that warning as a checklist item, not a feature.
-- **Set a stable `HONEYWATCH_SECRET` env var** before starting `ws_server.py`. Without it, a new random JWT signing key is generated every restart, which silently logs everyone out.
-- **Never run the honeypot on a machine with real data, credentials, or other services on it.** Use a dedicated, isolated VPS.
-- Restrict outbound traffic on the honeypot host to just what you need (see the firewall snippet in `backend/`'s inline docs / original design) so a compromised fake shell can't be used to pivot anywhere.
+Before this touches the public internet:
 
----
-
-## Local development
-
-Run the backend and dashboard together exactly as before — `backend/` is a
-complete, self-contained copy of the original project:
-
-```bash
-cd backend
-pip install -r requirements.txt
-python seed_logs.py
-python ws_server.py     # serves the dashboard itself at http://localhost:<port>
-# in another terminal:
-python honeypot.py
-```
-
-Open the URL `ws_server.py` prints (NOT `dashboard.html` directly as a
-`file://` URL — browsers block its API calls under `file://`). The Windows
-launchers (`setup_and_run_v2.bat` / `.ps1`) still work unchanged from inside
-`backend/`.
+- **Change the default login**: `python auth.py passwd admin <new-password>`
+  (12+ characters). `admin` / `honeywatch` is printed as a warning in the
+  logs on first run — treat that as a to-do, not a feature.
+- **Set a stable `HONEYWATCH_SECRET` environment variable** before starting
+  `ws_server.py`. Without it, a new random JWT signing key is generated on
+  every restart, which silently logs everyone out and invalidates every
+  existing session.
+- **Never run the honeypot on a machine with real data, credentials, or
+  other services on it.** Use a dedicated, isolated VPS — assume anything
+  the fake shell can see, an attacker can eventually get to.
+- **Restrict outbound traffic** on the honeypot host to what it actually
+  needs. `honeypot.py` will genuinely fetch and hash URLs an attacker feeds
+  it via `wget`/`curl` (that's how malware capture works) — don't let that
+  same box pivot anywhere you care about.
 
 ---
 
@@ -152,76 +139,108 @@ launchers (`setup_and_run_v2.bat` / `.ps1`) still work unchanged from inside
 
 ```
 .
-├── index.html            # dashboard — deployed as the Vercel site
+├── index.html              # dashboard — deployed as the Vercel site
 ├── api/
-│   ├── stats.py          # GET /api/stats  — sample data, Vercel serverless function
-│   └── alerts.py         # GET /api/alerts — sample data, Vercel serverless function
+│   ├── stats.py             # GET /api/stats  — serves data/demo_snapshot.json
+│   └── alerts.py            # GET /api/alerts — serves data/demo_alerts.json
 ├── data/
-│   ├── demo_snapshot.json  # the sample dataset served by api/stats.py
-│   └── demo_alerts.json    # the sample alerts served by api/alerts.py
+│   ├── demo_snapshot.json   # sample dataset behind api/stats.py
+│   └── demo_alerts.json     # sample alerts behind api/alerts.py
 ├── vercel.json
-├── backend/               # run this on your own VPS — NOT deployed to Vercel
-│   ├── honeypot.py         # SSH server — fake shell, tarpit, malware capture
-│   ├── fake_fs.py          # stateful virtual filesystem + canary credentials
-│   ├── threat_intel.py     # GeoIP, AbuseIPDB, attack-pattern detection, alerting
-│   ├── database.py         # SQLite backend
-│   ├── auth.py             # login, JWT sessions, password hashing
-│   ├── alerts.py           # spike monitor + email/Discord/Slack notifications
-│   ├── report_gen.py       # PDF report generation
-│   ├── ws_server.py        # aiohttp API + WebSocket server
-│   ├── seed_logs.py        # generates 14 days of realistic demo data
-│   ├── dashboard.html      # same dashboard as index.html, for local dev via ws_server.py
+├── backend/                 # run this on your own VPS — not deployed to Vercel
+│   ├── honeypot.py           # SSH server — fake shell, tarpit, malware capture
+│   ├── fake_fs.py            # stateful virtual filesystem + canary credentials
+│   ├── threat_intel.py       # GeoIP, AbuseIPDB, Kaspersky OpenTIP, attack classification
+│   ├── database.py           # SQLite access layer
+│   ├── auth.py                # login, JWT sessions, password hashing
+│   ├── alerts.py              # spike monitor + email/Discord/Slack/webhook notifications
+│   ├── report_gen.py          # PDF report generation (reportlab)
+│   ├── ws_server.py           # aiohttp API + WebSocket server, also serves dashboard.html
+│   ├── seed_logs.py           # generates ~14 days of realistic demo data
+│   ├── check_kaspersky_key.py # standalone script to sanity-check an OpenTIP API key
+│   ├── dashboard.html         # same dashboard as index.html, for local dev via ws_server.py
 │   ├── requirements.txt
-│   ├── setup_and_run_v2.ps1
+│   ├── setup_and_run_v2.ps1   # Windows one-shot setup + launch
 │   └── setup_and_run_v2.bat
 └── README.md
 ```
+
+`backend/logs/` (the SQLite database and its WAL files) and
+`backend/__pycache__/` are runtime-generated and gitignored — don't expect
+to find committed sample data there; `seed_logs.py` creates it.
 
 ---
 
 ## Features
 
-- **SQLite database** (`backend/logs/honeypot.db`) — `sessions`, `auth_attempts`, `commands`, `suspicious_events`, `malware_captures`, `ip_reputation`, fully indexed.
-- **GeoIP enrichment** via ip-api.com — country, city, ISP, ASN, lat/lon, cached 24h.
-- **AbuseIPDB integration** (optional, needs a free API key) — abuse confidence score, Tor exit-node detection.
-- **Kaspersky OpenTIP integration** (optional, needs a free API key from [opentip.kaspersky.com/token](https://opentip.kaspersky.com/token)) — Red/Orange/Yellow/Grey/Green threat zone per IP, combined with AbuseIPDB's score (highest wins) into the same risk score used everywhere else in the dashboard.
-- **Attack pattern detection** — classifies each auth attempt as `dictionary_attack`, `targeted_bruteforce`, `credential_stuffing`, `botnet_sweep`, or generic `bruteforce`.
-- **Canary/deception credentials** planted in the fake filesystem (`/root/.aws/credentials`, `/root/.ssh/id_rsa`, `/root/.env`, `/var/www/html/wp-config.php`, etc.) to see what attackers go after.
-- **Tarpit delays** (0.5–2.0s per auth attempt) to waste brute-force tool time.
-- **Real malware capture** — if an attacker's `wget`/`curl` points at a real URL, the honeypot fetches and hashes the payload.
-- **Live WebSocket feed** when connected to a real `ws_server.py` backend; polling fallback otherwise.
-- **Six dashboard pages**: Overview, World Map, Credentials, Activity, Threats, Malware.
+- **SQLite database** (`backend/logs/honeypot.db`) — `sessions`,
+  `auth_attempts`, `commands`, `suspicious_events`, `malware_captures`,
+  `ip_reputation`, all indexed for the dashboard's queries.
+- **Stateful fake shell** — tracks a working directory, handles `cd`/`ls`/
+  `cat`/`echo`/`mkdir`/`touch`/`rm`, and serves realistic output for `ps`,
+  `uptime`, `netstat`, `df`, `free`, and dozens of other commands.
+- **Canary/deception credentials** planted in the fake filesystem
+  (`/root/.aws/credentials`, `/root/.ssh/id_rsa`, `/root/.env`,
+  `/var/www/html/wp-config.php`, etc.) to see exactly what attackers go
+  looking for.
+- **Tarpit delays** (0.2–0.8s per command, 0.5–2.0s per auth attempt) to
+  waste automated brute-force tooling's time.
+- **Real malware capture** — if an attacker's `wget`/`curl` points at a live
+  URL, the honeypot actually fetches and SHA-256-hashes the payload.
+- **GeoIP enrichment** via ip-api.com — country, city, ISP, ASN, lat/lon,
+  cached 24h.
+- **AbuseIPDB integration** (optional, free API key) — abuse confidence
+  score, Tor exit-node detection.
+- **Kaspersky OpenTIP integration** (optional, free API key from
+  [opentip.kaspersky.com/token](https://opentip.kaspersky.com/token)) —
+  Red/Orange/Yellow/Grey/Green threat zone per IP. When both AbuseIPDB and
+  OpenTIP are configured, the *higher* of the two scores wins, so either
+  source alone is enough to flag an IP as high-risk.
+- **Attack pattern classification** — each login attempt is tagged
+  `dictionary_attack`, `targeted_bruteforce`, `credential_stuffing`,
+  `botnet_sweep`, or generic `bruteforce`, based on a sliding window of
+  recent attempts.
+- **Suspicious-command detection** — pattern-matches shell input for file
+  downloads, reverse shells, persistence (`crontab`, `/etc/rc.local`),
+  lateral movement, data exfiltration, and more, each tagged with a severity.
+- **Alerting** — email, Discord, Slack, and generic webhook notifications on
+  critical events, spike detection, and successful (honeypot) logins, with
+  per-alert-type cooldowns to avoid flooding.
+- **PDF threat reports** generated on demand from the live database.
+- **Live WebSocket feed** when connected to a real `ws_server.py` backend;
+  polling fallback otherwise.
+- **Six dashboard views**: Overview, World Map, Credentials, Activity,
+  Threats, Malware.
 
 ### Configuring the backend
 
-Threat-intel API keys are read from environment variables (recommended, keeps
-secrets out of git) with the old in-file constants as a fallback:
+Threat-intel API keys are read from environment variables so you don't have
+to commit secrets to git:
 
 ```bash
-export ABUSEIPDB_KEY="your_abuseipdb_key"           # https://www.abuseipdb.com/api — free tier: 1000/day
-export KASPERSKY_OPENTIP_KEY="your_opentip_key"      # https://opentip.kaspersky.com/token — free
+export ABUSEIPDB_KEY="your_abuseipdb_key"        # abuseipdb.com/api — free tier: 1000/day
+export KASPERSKY_OPENTIP_KEY="your_opentip_key"   # opentip.kaspersky.com/token — free
 ```
 
-Both are optional and independent — set either, both, or neither. When both
-are set, `threat_intel.py` takes the *higher* of the two risk scores for each
-IP (an IP flagged `Red` by Kaspersky but unlisted on AbuseIPDB is still
-treated as high-risk, and vice versa), so this is additive coverage rather
-than a replacement. The combined score drives the same `abuse_score` column
-that already feeds the dashboard's IP table colors, the world map, alert
-thresholds, and PDF reports — no other changes needed to see it show up.
+Both are optional and independent — set either, both, or neither. Sanity
+check an OpenTIP key on its own, without touching the honeypot database:
 
-If you'd rather hardcode a key for local testing, `threat_intel.py` still
-has `ABUSEIPDB_KEY` / `KASPERSKY_KEY` constants at the top — just don't
-commit real keys to git if you do.
+```bash
+export KASPERSKY_OPENTIP_KEY="your_opentip_key"
+python check_kaspersky_key.py 8.8.8.8
+```
+
+Discord alert webhook and honeypot port are set directly in the source for
+now:
 
 ```python
-# backend/threat_intel.py
-DISCORD_WEBHOOK = "https://discord.com/api/webhooks/..."
+# backend/alerts.py — used by the CONFIG dict's discord_webhook, or set
+# DISCORD_WEBHOOK / SLACK_WEBHOOK / WEBHOOK_URL as environment variables instead
 ```
 
 ```python
 # backend/honeypot.py
-PORT = 22   # production; requires root or authbind — see below
+PORT = 2222   # change to 22 for production — requires root or authbind
 ```
 
 ```bash
@@ -250,6 +269,25 @@ SELECT timestamp, peer_ip, suspicious_type, detail
 FROM suspicious_events WHERE severity = 'critical'
 ORDER BY timestamp DESC;
 ```
+
+---
+
+## Local development
+
+```bash
+cd backend
+pip install -r requirements.txt
+python seed_logs.py
+python ws_server.py     # serves the dashboard itself at http://localhost:<port>
+# in another terminal:
+python honeypot.py
+```
+
+`ws_server.py` prints the port it bound (it tries 8080 first, then falls
+back through a short list of alternates, then a random free port) — open
+that URL, not `dashboard.html` as a file. Run `python -m pyflakes backend/*.py
+api/*.py` before committing changes; the codebase is lint-clean and CI-worthy
+as of this revision.
 
 ---
 

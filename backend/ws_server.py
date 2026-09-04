@@ -226,7 +226,7 @@ async def _broadcast_loop():
                             await ws.send_str(e)
                     except Exception:
                         dead.add(ws)
-                _ws_clients -= dead
+                _ws_clients.difference_update(dead)
     except asyncio.CancelledError:
         pass  # Normal shutdown — suppress traceback
 
@@ -256,11 +256,11 @@ async def run_server():
     print("")
     print("  ╔══════════════════════════════════════════════════════╗")
     print(f" ║  HoneyWatch v3  —  Port {HTTP_PORT:<5}               ║")
-    print(f" ║                                                      ║")
-    print(f" ║  >>> Open in browser:                                ║")
+    print(" ║                                                      ║")
+    print(" ║  >>> Open in browser:                                ║")
     print(f" ║      http://localhost:{HTTP_PORT}                    ║")
-    print(f" ║                                                      ║")
-    print(f" ║  Login :  admin / honeywatch                         ║")
+    print(" ║                                                      ║")
+    print(" ║  Login :  admin / honeywatch                         ║")
     print(f" ║  API   :  http://localhost:{HTTP_PORT}/api/stats     ║")
     print("  ╚══════════════════════════════════════════════════════╝")
     print("")

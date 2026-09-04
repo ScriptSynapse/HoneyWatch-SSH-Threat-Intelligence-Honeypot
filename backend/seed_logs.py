@@ -13,7 +13,7 @@ Sources used:
 - Cisco SSH Honeypot: US + China dominate, Colombia and Poland notable
 """
 
-import json, random, time, sys, math
+import json, random, time, sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -521,9 +521,9 @@ def seed():
     print(f"  ✓ {total_cmd:>7,}  commands logged")
     print(f"  ✓ {total_susp:>7,}  suspicious events")
     print(f"  ✓ {total_mal:>7,}  malware captures")
-    print(f"\n  DB → logs/honeypot.db")
-    print(f"\n✅ Real-world data seeded successfully.")
-    print(f"   Run: python ws_server.py  then open dashboard.html")
+    print("\n  DB → logs/honeypot.db")
+    print("\n✅ Real-world data seeded successfully.")
+    print("   Run: python ws_server.py  then open dashboard.html")
 
 if __name__ == "__main__":
     seed()

@@ -12,7 +12,6 @@ import random
 import hashlib
 import logging
 import re
-import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -289,7 +288,11 @@ class FakeShell:
 
         if verb == "find":
             path = next((a for a in args if not a.startswith("-")), "/")
-            return f"/etc/passwd\n/etc/shadow\n/root/.bash_history\n/root/.aws/credentials\n"
+            candidates = ["/etc/passwd", "/etc/shadow",
+                          "/root/.bash_history", "/root/.aws/credentials"]
+            root = path.rstrip("/") or "/"
+            hits = [c for c in candidates if root == "/" or c.startswith(root)]
+            return "\n".join(hits) + "\n" if hits else ""
 
         if verb == "grep":
             return ""

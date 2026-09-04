@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Runtime-generated honeypot data (created by seed_logs.py / honeypot.py / ws_server.py)
+backend/logs/
+backend/malware_captures/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/

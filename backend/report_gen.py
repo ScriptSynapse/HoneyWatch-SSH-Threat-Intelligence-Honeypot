@@ -3,7 +3,6 @@ report_gen.py — Generates professional PDF threat intelligence reports.
 Uses reportlab to produce a styled multi-page report from the SQLite database.
 """
 
-import io
 import json
 import logging
 from datetime import datetime, timezone, timedelta
@@ -12,16 +11,15 @@ from pathlib import Path
 from reportlab.lib               import colors
 from reportlab.lib.pagesizes     import A4
 from reportlab.lib.styles        import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units         import mm, cm
-from reportlab.lib.enums         import TA_LEFT, TA_CENTER, TA_RIGHT
+from reportlab.lib.units         import mm
+from reportlab.lib.enums         import TA_CENTER
 from reportlab.platypus          import (SimpleDocTemplate, Paragraph, Spacer,
                                           Table, TableStyle, PageBreak,
                                           HRFlowable, KeepTogether)
 from reportlab.platypus.flowables import Flowable
-from reportlab.graphics.shapes   import Drawing, Rect, String, Line, Polygon
+from reportlab.graphics.shapes   import Drawing, Rect
 from reportlab.graphics.charts.barcharts  import VerticalBarChart
 from reportlab.graphics.charts.piecharts  import Pie
-from reportlab.graphics          import renderPDF
 
 import database as db
 
@@ -168,8 +166,6 @@ def _styles():
 
 def dark_table(headers, rows, col_widths, row_colors=None):
     data    = [headers] + rows
-    n_cols  = len(headers)
-    n_rows  = len(data)
 
     style = [
         # Header row
@@ -313,7 +309,6 @@ def generate_report(output_path: str = "reports/honeywatch_report.pdf",
     """, (cutoff,))
     attack_types  = db.query("SELECT attack_type as v, COUNT(*) c FROM auth_attempts WHERE timestamp>? AND attack_type IS NOT NULL GROUP BY attack_type ORDER BY c DESC", (cutoff,))
     top_cmds      = db.query("SELECT command_base as v, COUNT(*) c FROM commands WHERE timestamp>? AND command_base!='' GROUP BY command_base ORDER BY c DESC LIMIT 12", (cutoff,))
-    susp_types    = db.query("SELECT suspicious_type as v, COUNT(*) c FROM suspicious_events WHERE timestamp>? GROUP BY suspicious_type ORDER BY c DESC", (cutoff,))
     recent_susp   = db.query("""
         SELECT s.timestamp, s.peer_ip, s.suspicious_type, s.severity, s.detail, r.country
         FROM suspicious_events s LEFT JOIN ip_reputation r ON s.peer_ip=r.ip
@@ -389,7 +384,6 @@ def generate_report(output_path: str = "reports/honeywatch_report.pdf",
     for i, row in enumerate(top_ips):
         score = row.get("abuse_score") or 0
         score_str = f"{score}/100"
-        severity_col = C_RED if score >= 80 else C_AMBER if score >= 50 else C_GREEN
         ip_rows.append([
             str(i+1),
             row["peer_ip"] or "—",
