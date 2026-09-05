@@ -107,7 +107,7 @@ label{display:block; font-family:var(--font-mono); font-size:10px; color:var(--t
   <h2>Create an account</h2>
   <p class="sub">Register a dashboard operator on your own honeypot backend.</p>
 
-  <div class="field-group">
+  <div class="field-group" id="backend-group">
     <label for="backend">Backend URL</label>
     <input class="field small" id="backend" type="text" placeholder="https://your-vps.example.com" autocomplete="off"/>
     <div class="hint" id="backend-hint">Required — where your ws_server.py is running. Signup can't work against the sample-data demo.</div>
@@ -141,8 +141,17 @@ label{display:block; font-family:var(--font-mono); font-size:10px; color:var(--t
 </div>
 
 <script>
+// ── Site owner: set this once when you deploy, and your visitors never have
+// to know or enter a backend URL — they just pick a username/password.
+// Leave it blank to require visitors to type where their own backend lives.
+var DEFAULT_BACKEND_URL = ''; // e.g. 'https://your-vps.example.com'
+
 var savedBackend = (localStorage.getItem('hw_backend_url') || '').trim().replace(/\/+$/,'');
-if (savedBackend) document.getElementById('backend').value = savedBackend;
+if (DEFAULT_BACKEND_URL) {
+  document.getElementById('backend-group').style.display = 'none';
+} else if (savedBackend) {
+  document.getElementById('backend').value = savedBackend;
+}
 
 (function(){
   if (sessionStorage.getItem('hw_token')) window.location.href = 'dashboard.html';
@@ -153,7 +162,7 @@ function goToDashboard() { window.location.href = 'dashboard.html'; }
 async function doRegister() {
   var btn  = document.getElementById('btn');
   var err  = document.getElementById('err');
-  var backendVal = document.getElementById('backend').value.trim().replace(/\/+$/,'');
+  var backendVal = DEFAULT_BACKEND_URL || document.getElementById('backend').value.trim().replace(/\/+$/,'');
   var user  = document.getElementById('user').value.trim();
   var pass  = document.getElementById('pass').value;
   var pass2 = document.getElementById('pass2').value;

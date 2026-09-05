@@ -93,10 +93,27 @@ every 30s and upgrades to a live WebSocket feed automatically. The Backend
 URL is remembered in your browser so you only enter it once — `signup.html`
 picks it up too.
 
+### Skipping the Backend URL field entirely
+
+By default, `signin.html`/`signup.html` ask visitors for a Backend URL (or
+auto-discover one during local dev). If you run one fixed backend, you can
+remove that step for everyone else: open `signin.html` and `signup.html` and
+set the constant near the top of each `<script>` block:
+
+```js
+var DEFAULT_BACKEND_URL = 'https://your-vps.example.com';
+```
+
+With that set, the "Connect to a specific backend" field disappears from
+both pages — visitors just enter a username and password (or, on the sign-up
+page, a username and a new password) and it's used automatically. Leave it
+as `''` to keep the manual/auto-discovery flow instead.
+
 ### Adding more dashboard operators
 
 Once a real backend is running, anyone can self-register a viewer account
-from `signup.html` by pointing it at your Backend URL — this hits a new
+from `signup.html` — either against `DEFAULT_BACKEND_URL` if you've set one,
+or by pointing it at your Backend URL manually. This hits a
 `POST /api/register` endpoint on `ws_server.py`. New accounts get the
 `viewer` role; promote one to full admin with:
 
@@ -104,9 +121,9 @@ from `signup.html` by pointing it at your Backend URL — this hits a new
 python auth.py passwd <username> <new-password>   # or edit logs/auth_config.json directly
 ```
 
-If you don't want open self-registration, don't publish your Backend URL —
-`/api/register` isn't exposed any other way, and there's currently no flag to
-disable it outright.
+If you don't want open self-registration, don't publish `signup.html`'s URL
+(or your Backend URL) — `/api/register` isn't gated any other way, and
+there's currently no flag to disable it outright.
 
 ### Keeping it running
 

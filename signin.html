@@ -149,7 +149,7 @@ label{
 
   <div class="footer-row">New here?<a href="signup.html">Create an account</a></div>
 
-  <div class="demo-note">
+  <div class="demo-note" id="demo-note">
     Demo credentials: <b>admin</b> / <b>honeywatch</b> — loads this deployment's sample
     data with no backend required. Point "Connect to a specific backend" at your own
     <code>ws_server.py</code> for live honeypot traffic.
@@ -157,11 +157,25 @@ label{
 </div>
 
 <script>
-var _backendBase = (localStorage.getItem('hw_backend_url') || '').trim().replace(/\/+$/,'');
+// ── Site owner: set this once when you deploy, and your visitors never have
+// to know or enter a backend URL — they just type username/password.
+// Leave it blank to keep the auto-discovery / "Connect to a specific backend"
+// flow instead (useful during development, or if you don't run one fixed backend).
+var DEFAULT_BACKEND_URL = ''; // e.g. 'https://your-vps.example.com'
+
+var _backendBase = DEFAULT_BACKEND_URL
+  || (localStorage.getItem('hw_backend_url') || '').trim().replace(/\/+$/,'');
 var _mode = 'offline';
 var _apiPort = null;
 
-if (_backendBase) {
+if (DEFAULT_BACKEND_URL) {
+  // Backend is fixed by the deployer — nothing for the visitor to configure.
+  document.getElementById('advanced-toggle').style.display = 'none';
+  document.getElementById('demo-note').innerHTML =
+    'Enter your dashboard username and password to sign in. ' +
+    'No account yet? <a href="signup.html">Create one</a> — ' +
+    'or use <b>admin</b> / <b>honeywatch</b> to browse the live demo data.';
+} else if (_backendBase) {
   document.getElementById('backend').value = _backendBase;
   document.getElementById('advanced-panel').classList.add('open');
   document.getElementById('advanced-toggle').textContent = '- Connect to a specific backend';
@@ -238,10 +252,14 @@ async function doLogin() {
   var err  = document.getElementById('err');
   var user = document.getElementById('user').value.trim();
   var pass = document.getElementById('pass').value;
-  var backendVal = document.getElementById('backend').value.trim().replace(/\/+$/,'');
 
-  if (backendVal) { _backendBase = backendVal; localStorage.setItem('hw_backend_url', backendVal); }
-  else { _backendBase = ''; localStorage.removeItem('hw_backend_url'); }
+  if (DEFAULT_BACKEND_URL) {
+    _backendBase = DEFAULT_BACKEND_URL; // fixed by the deployer — the hidden field is ignored
+  } else {
+    var backendVal = document.getElementById('backend').value.trim().replace(/\/+$/,'');
+    if (backendVal) { _backendBase = backendVal; localStorage.setItem('hw_backend_url', backendVal); }
+    else { _backendBase = ''; localStorage.removeItem('hw_backend_url'); }
+  }
 
   if (!user) { err.textContent = 'Enter username'; return; }
   if (!pass) { err.textContent = 'Enter password'; return; }
@@ -255,13 +273,18 @@ async function doLogin() {
   if (!found) {
     var isDemoCreds = (user === 'admin' && pass === 'honeywatch') || (user === 'demo' && pass === 'demo');
     if (isDemoCreds) { enterDemoMode(); return; }
-    err.innerHTML = _backendBase
-      ? '<span style="color:var(--r)">Cannot reach ' + _backendBase + '</span><br>' +
-        'Check the URL, that ws_server.py is running there, and CORS is allowed.<br>' +
-        'Or use <b>admin / honeywatch</b> for the live demo.'
-      : '<span style="color:var(--r)">No backend found.</span><br>' +
-        'Run ws_server.py locally, or set a Backend URL above.<br>' +
-        'Or use <b>admin / honeywatch</b> for the live demo.';
+    if (DEFAULT_BACKEND_URL) {
+      err.innerHTML = '<span style="color:var(--r)">Cannot reach the backend right now.</span><br>' +
+        'This site\'s backend appears to be offline — try again shortly, or use <b>admin / honeywatch</b> for the live demo.';
+    } else {
+      err.innerHTML = _backendBase
+        ? '<span style="color:var(--r)">Cannot reach ' + _backendBase + '</span><br>' +
+          'Check the URL, that ws_server.py is running there, and CORS is allowed.<br>' +
+          'Or use <b>admin / honeywatch</b> for the live demo.'
+        : '<span style="color:var(--r)">No backend found.</span><br>' +
+          'Run ws_server.py locally, or set a Backend URL above.<br>' +
+          'Or use <b>admin / honeywatch</b> for the live demo.';
+    }
     btn.disabled = false;
     btn.textContent = 'SIGN IN';
     return;
