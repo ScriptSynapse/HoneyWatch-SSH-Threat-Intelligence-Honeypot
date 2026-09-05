@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Sign in — HoneyWatch</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+:root{
+  --bg0:#04080d; --bg1:#080f17; --bg2:#0c1620; --bg3:#111e2a;
+  --border:#162330; --border2:#1e3245;
+  --g:#00ffa3; --g2:#00cc7d;
+  --r:#ff2d55;
+  --y:#ffcc00;
+  --c:#00ccff;
+  --txt:#a8c4d8; --txt2:#567890; --txt3:#2a4560;
+  --font-mono:'JetBrains Mono',monospace;
+  --font-ui:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg0); color:var(--txt); font-family:var(--font-ui);
+  display:flex; align-items:center; justify-content:center;
+  min-height:100vh; padding:20px; position:relative; overflow:hidden;
+}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,163,.012) 3px,rgba(0,255,163,.012) 4px)}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 900px 500px at 50% -10%, rgba(0,255,163,.07), transparent 60%)}
+
+a{color:var(--g); text-decoration:none}
+a:hover{text-decoration:underline}
+
+.top-link{
+  position:fixed; top:24px; left:24px; z-index:2;
+  font-family:var(--font-mono); font-size:11px; color:var(--txt2);
+  display:flex; align-items:center; gap:6px;
+}
+.top-link:hover{color:var(--g)}
+
+.card{
+  position:relative; z-index:2;
+  background:var(--bg2); border:1px solid var(--border2); border-radius:10px;
+  padding:40px 36px; width:380px; max-width:100%;
+}
+.brand{display:flex; align-items:center; gap:10px; margin-bottom:28px}
+.brand-icon{font-size:26px; filter:drop-shadow(0 0 8px var(--g))}
+.brand h1{
+  font-family:var(--font-ui); font-size:16px; font-weight:800;
+  letter-spacing:.12em;
+  background:linear-gradient(90deg,var(--g),var(--c));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.brand span{
+  font-family:var(--font-mono); font-size:9px; color:var(--txt2);
+  letter-spacing:.13em; display:block; margin-top:2px;
+}
+
+h2{font-family:var(--font-ui); font-size:19px; font-weight:700; margin-bottom:6px}
+.sub{font-family:var(--font-mono); font-size:11px; color:var(--txt2); margin-bottom:24px; line-height:1.5}
+
+label{
+  display:block; font-family:var(--font-mono); font-size:10px; color:var(--txt2);
+  letter-spacing:.05em; margin-bottom:6px;
+}
+.field{
+  width:100%; background:var(--bg3); border:1px solid var(--border2); border-radius:5px;
+  padding:11px 14px; font-family:var(--font-mono); font-size:13px; color:var(--txt);
+  outline:none; transition:border-color .2s; margin-bottom:16px;
+}
+.field:focus{border-color:var(--g)}
+.field.small{font-size:11px; padding:9px 14px}
+
+.advanced-toggle{
+  font-family:var(--font-mono); font-size:10px; color:var(--txt2);
+  cursor:pointer; margin:-6px 0 16px; display:inline-block; user-select:none;
+}
+.advanced-toggle:hover{color:var(--g)}
+.advanced-panel{display:none; margin-bottom:4px}
+.advanced-panel.open{display:block}
+
+.btn{
+  width:100%; padding:12px; background:linear-gradient(90deg,var(--g2),var(--g));
+  border:none; border-radius:5px; font-family:var(--font-mono); font-size:12px;
+  font-weight:700; color:#000; cursor:pointer; letter-spacing:.1em; transition:opacity .2s;
+}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+
+.err{
+  font-family:var(--font-mono); font-size:11px; color:var(--r); margin-top:12px;
+  min-height:14px; text-align:center; line-height:1.6;
+}
+.err b{color:var(--g)}
+
+.divider{
+  display:flex; align-items:center; gap:10px; margin:22px 0;
+  font-family:var(--font-mono); font-size:9px; color:var(--txt3);
+}
+.divider::before, .divider::after{content:''; flex:1; height:1px; background:var(--border2)}
+
+.footer-row{
+  text-align:center; font-family:var(--font-mono); font-size:11px; color:var(--txt2);
+}
+.footer-row a{margin-left:4px}
+
+.demo-note{
+  font-family:var(--font-mono); font-size:9.5px; color:var(--txt2); line-height:1.6;
+  margin-top:18px; padding-top:16px; border-top:1px solid var(--border);
+}
+.demo-note b{color:var(--y)}
+</style>
+</head>
+<body>
+
+<a class="top-link" href="index.html">&larr; HoneyWatch</a>
+
+<div class="card">
+  <div class="brand">
+    <div class="brand-icon">🍯</div>
+    <div>
+      <h1>HONEYWATCH</h1>
+      <span>SSH THREAT INTELLIGENCE</span>
+    </div>
+  </div>
+
+  <h2>Sign in</h2>
+  <p class="sub">Connect to your honeypot's dashboard, or browse sample data with no setup.</p>
+
+  <label for="user">Username</label>
+  <input class="field" id="user" type="text" placeholder="admin" autocomplete="username"/>
+
+  <label for="pass">Password</label>
+  <input class="field" id="pass" type="password" placeholder="••••••••" autocomplete="current-password"/>
+
+  <span class="advanced-toggle" id="advanced-toggle" onclick="toggleAdvanced()">+ Connect to a specific backend</span>
+  <div class="advanced-panel" id="advanced-panel">
+    <label for="backend">Backend URL</label>
+    <input class="field small" id="backend" type="text" placeholder="https://your-vps.example.com" autocomplete="off"/>
+  </div>
+
+  <button class="btn" id="btn" onclick="doLogin()">SIGN IN</button>
+  <div class="err" id="err"></div>
+
+  <div class="divider">OR</div>
+  <button class="btn" style="background:var(--bg3); color:var(--txt); border:1px solid var(--border2)" onclick="tryDemo()">VIEW LIVE DEMO</button>
+
+  <div class="footer-row">New here?<a href="signup.html">Create an account</a></div>
+
+  <div class="demo-note">
+    Demo credentials: <b>admin</b> / <b>honeywatch</b> — loads this deployment's sample
+    data with no backend required. Point "Connect to a specific backend" at your own
+    <code>ws_server.py</code> for live honeypot traffic.
+  </div>
+</div>
+
+<script>
+var _backendBase = (localStorage.getItem('hw_backend_url') || '').trim().replace(/\/+$/,'');
+var _mode = 'offline';
+var _apiPort = null;
+
+if (_backendBase) {
+  document.getElementById('backend').value = _backendBase;
+  document.getElementById('advanced-panel').classList.add('open');
+  document.getElementById('advanced-toggle').textContent = '- Connect to a specific backend';
+}
+
+// If already signed in this session, skip straight to the dashboard.
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var next = params.get('next') || 'dashboard.html';
+  if (sessionStorage.getItem('hw_token')) window.location.href = next;
+})();
+
+function toggleAdvanced() {
+  var panel = document.getElementById('advanced-panel');
+  var toggle = document.getElementById('advanced-toggle');
+  var open = panel.classList.toggle('open');
+  toggle.textContent = (open ? '- ' : '+ ') + 'Connect to a specific backend';
+}
+
+// Figures out where live/sample data should come from. Tries, in order:
+//   1) an explicit backend URL the user configured (their own ws_server.py on a VPS)
+//   2) ws_server.py running alongside this page on localhost (local development)
+//   3) this deployment's own same-origin /api/* functions (sample data on Vercel)
+// Returns true if *something* answered, false if nothing did.
+async function discoverApiPort() {
+  if (_backendBase) {
+    try {
+      var probe = await fetch(_backendBase + '/api/stats',
+        {signal: AbortSignal.timeout(6000), cache: 'no-store'});
+      if (probe.ok) { _mode = 'remote'; return true; }
+    } catch(e) { console.log('Backend URL unreachable:', e.message); }
+    return false;
+  }
+
+  if (window.location.protocol === 'http:' && window.location.hostname === 'localhost') {
+    var currentPort = parseInt(window.location.port) || 80;
+    try {
+      var probe2 = await fetch('http://localhost:' + currentPort + '/api/stats',
+        {signal: AbortSignal.timeout(3000), cache: 'no-store'});
+      if (probe2.ok) { _apiPort = currentPort; _mode = 'local'; return true; }
+    } catch(e) { console.log('Localhost probe failed:', e.message); }
+
+    var ports = [8080, 8081, 8082, 8083, 8888, 9000, 9090, 7070];
+    for (var i = 0; i < ports.length; i++) {
+      try {
+        var r = await fetch('http://localhost:' + ports[i] + '/api/stats',
+          {signal: AbortSignal.timeout(2000), cache: 'no-store'});
+        if (r.ok) { _apiPort = ports[i]; _mode = 'local'; return true; }
+      } catch(e) { console.log('Port ' + ports[i] + ' failed:', e.message); }
+    }
+  }
+
+  try {
+    var r3 = await fetch('/api/stats', {signal: AbortSignal.timeout(5000), cache: 'no-store'});
+    if (r3.ok) { _mode = 'sameorigin'; return true; }
+  } catch(e) { console.log('Same-origin /api/stats unavailable:', e.message); }
+
+  return false;
+}
+
+function apiUrl(path) {
+  if (_mode === 'remote' && _backendBase) return _backendBase + path;
+  if (_mode === 'local' && _apiPort) return 'http://localhost:' + _apiPort + path;
+  return path;
+}
+
+function goToDashboard() {
+  var params = new URLSearchParams(window.location.search);
+  window.location.href = params.get('next') || 'dashboard.html';
+}
+
+async function doLogin() {
+  var btn  = document.getElementById('btn');
+  var err  = document.getElementById('err');
+  var user = document.getElementById('user').value.trim();
+  var pass = document.getElementById('pass').value;
+  var backendVal = document.getElementById('backend').value.trim().replace(/\/+$/,'');
+
+  if (backendVal) { _backendBase = backendVal; localStorage.setItem('hw_backend_url', backendVal); }
+  else { _backendBase = ''; localStorage.removeItem('hw_backend_url'); }
+
+  if (!user) { err.textContent = 'Enter username'; return; }
+  if (!pass) { err.textContent = 'Enter password'; return; }
+
+  err.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'CONNECTING...';
+
+  var found = await discoverApiPort();
+
+  if (!found) {
+    var isDemoCreds = (user === 'admin' && pass === 'honeywatch') || (user === 'demo' && pass === 'demo');
+    if (isDemoCreds) { enterDemoMode(); return; }
+    err.innerHTML = _backendBase
+      ? '<span style="color:var(--r)">Cannot reach ' + _backendBase + '</span><br>' +
+        'Check the URL, that ws_server.py is running there, and CORS is allowed.<br>' +
+        'Or use <b>admin / honeywatch</b> for the live demo.'
+      : '<span style="color:var(--r)">No backend found.</span><br>' +
+        'Run ws_server.py locally, or set a Backend URL above.<br>' +
+        'Or use <b>admin / honeywatch</b> for the live demo.';
+    btn.disabled = false;
+    btn.textContent = 'SIGN IN';
+    return;
+  }
+
+  if (_mode === 'sameorigin') {
+    sessionStorage.setItem('hw_token', 'demo-api');
+    sessionStorage.setItem('hw_user', user);
+    sessionStorage.setItem('hw_mode', 'sameorigin');
+    sessionStorage.removeItem('hw_backend');
+    sessionStorage.removeItem('hw_apiport');
+    goToDashboard();
+    return;
+  }
+
+  btn.textContent = 'AUTHENTICATING...';
+  try {
+    var r = await fetch(apiUrl('/api/login'), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: user, password: pass}),
+      signal: AbortSignal.timeout(8000),
+    });
+    var data = await r.json();
+    if (!r.ok) {
+      err.textContent = data.error || 'Invalid credentials';
+      btn.disabled = false;
+      btn.textContent = 'SIGN IN';
+      return;
+    }
+    sessionStorage.setItem('hw_token', data.token);
+    sessionStorage.setItem('hw_user', data.username);
+    sessionStorage.setItem('hw_mode', _mode);
+    sessionStorage.setItem('hw_backend', _backendBase);
+    if (_apiPort) sessionStorage.setItem('hw_apiport', _apiPort);
+    goToDashboard();
+  } catch(e) {
+    err.textContent = 'Error: ' + (e.message || 'timeout');
+    btn.disabled = false;
+    btn.textContent = 'SIGN IN';
+  }
+}
+
+function enterDemoMode() {
+  sessionStorage.setItem('hw_token', 'demo');
+  sessionStorage.setItem('hw_user', 'demo');
+  sessionStorage.setItem('hw_mode', 'offline');
+  sessionStorage.removeItem('hw_backend');
+  sessionStorage.removeItem('hw_apiport');
+  goToDashboard();
+}
+
+function tryDemo() {
+  document.getElementById('user').value = 'admin';
+  document.getElementById('pass').value = 'honeywatch';
+  doLogin();
+}
+
+document.getElementById('pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('user').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('pass').focus(); });
+document.getElementById('backend').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>

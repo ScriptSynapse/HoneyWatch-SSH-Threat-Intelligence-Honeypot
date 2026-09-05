@@ -236,6 +236,7 @@ async def run_server():
     app.router.add_get( "/",                    handle_dashboard)
     app.router.add_get( "/dashboard",           handle_dashboard)
     app.router.add_post("/api/login",           auth_mod.handle_login)
+    app.router.add_post("/api/register",        auth_mod.handle_register)
     app.router.add_post("/api/logout",          auth_mod.handle_logout)
     app.router.add_post("/api/passwd",          auth_mod.handle_change_password)
     app.router.add_get( "/api/stats",           handle_stats)

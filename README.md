@@ -9,7 +9,7 @@ It ships in two parts, deployed to two different places:
 
 | Part | What it does | Runs on |
 |---|---|---|
-| **Dashboard** (`index.html`, `api/`) | The UI, plus two tiny serverless functions that hand it a sample dataset so it works with zero setup | **Vercel** (or any static host) |
+| **Site** (`index.html`, `signin.html`, `signup.html`, `dashboard.html`, `api/`) | Landing page, sign-in/sign-up, the dashboard UI, plus two tiny serverless functions that hand it a sample dataset so it works with zero setup | **Vercel** (or any static host) |
 | **Backend** (`backend/`) | The real SSH honeypot, SQLite database, WebSocket/API server, alerting, PDF reports | **A VPS or any machine you leave running** |
 
 That split isn't optional — it's a consequence of what each side can do.
@@ -30,15 +30,22 @@ vercel                 # from the repo root, accept the defaults
 
 Or connect the repo at [vercel.com/new](https://vercel.com/new) — no build
 command, no output directory, no environment variables needed. Vercel serves
-`index.html` as the site and turns `api/stats.py` / `api/alerts.py` into
-Python serverless functions automatically because they live under `api/`.
+`index.html` (the landing page) as the site's home, and turns `api/stats.py` /
+`api/alerts.py` into Python serverless functions automatically because they
+live under `api/`.
 
-Log in with **anything** — the login form only gates access to the demo UI
-here, it isn't checking a real password — and you'll see a realistic sample
-dataset: ~8,600 login attempts, 15 attacker IPs across 10 countries, a
+From the landing page, **View live demo** takes you through `signin.html` and
+straight into `dashboard.html` with the demo credentials pre-filled — or log
+in with **anything** yourself, since the login form only gates access to the
+demo UI here, it isn't checking a real password. You'll see a realistic
+sample dataset: ~8,600 login attempts, 15 attacker IPs across 10 countries, a
 malware download feed, and a full world map. This is fixed sample data (see
 `data/demo_snapshot.json`), not live traffic; there is no honeypot running
 behind a bare Vercel deploy.
+
+`signup.html` is different: it creates a real account on a real backend
+(see below), so it needs a Backend URL and won't do anything useful against
+the sample-data deployment on its own.
 
 ## Full setup — real honeypot feeding the dashboard
 
@@ -79,11 +86,27 @@ your-domain.example.com {
 }
 ```
 
-Then, on the Vercel dashboard's login screen, enter
-`https://your-domain.example.com` in the **Backend URL** field and log in
-with your real credentials. The dashboard now polls `/api/stats` every 30s
-and upgrades to a live WebSocket feed automatically. The Backend URL is
-remembered in your browser so you only enter it once.
+Then, on the Vercel dashboard's sign-in screen (`signin.html`), expand
+**Connect to a specific backend**, enter `https://your-domain.example.com`,
+and log in with your real credentials. The dashboard now polls `/api/stats`
+every 30s and upgrades to a live WebSocket feed automatically. The Backend
+URL is remembered in your browser so you only enter it once — `signup.html`
+picks it up too.
+
+### Adding more dashboard operators
+
+Once a real backend is running, anyone can self-register a viewer account
+from `signup.html` by pointing it at your Backend URL — this hits a new
+`POST /api/register` endpoint on `ws_server.py`. New accounts get the
+`viewer` role; promote one to full admin with:
+
+```bash
+python auth.py passwd <username> <new-password>   # or edit logs/auth_config.json directly
+```
+
+If you don't want open self-registration, don't publish your Backend URL —
+`/api/register` isn't exposed any other way, and there's currently no flag to
+disable it outright.
 
 ### Keeping it running
 
@@ -139,7 +162,10 @@ Before this touches the public internet:
 
 ```
 .
-├── index.html              # dashboard — deployed as the Vercel site
+├── index.html              # landing page — site home on Vercel
+├── signin.html              # sign-in page (demo creds, or your own Backend URL)
+├── signup.html              # self-registration against a real backend
+├── dashboard.html            # the dashboard app itself, reached after sign-in
 ├── api/
 │   ├── stats.py             # GET /api/stats  — serves data/demo_snapshot.json
 │   └── alerts.py            # GET /api/alerts — serves data/demo_alerts.json
@@ -152,13 +178,13 @@ Before this touches the public internet:
 │   ├── fake_fs.py            # stateful virtual filesystem + canary credentials
 │   ├── threat_intel.py       # GeoIP, AbuseIPDB, Kaspersky OpenTIP, attack classification
 │   ├── database.py           # SQLite access layer
-│   ├── auth.py                # login, JWT sessions, password hashing
+│   ├── auth.py                # login, signup, JWT sessions, password hashing
 │   ├── alerts.py              # spike monitor + email/Discord/Slack/webhook notifications
 │   ├── report_gen.py          # PDF report generation (reportlab)
 │   ├── ws_server.py           # aiohttp API + WebSocket server, also serves dashboard.html
 │   ├── seed_logs.py           # generates ~14 days of realistic demo data
 │   ├── check_kaspersky_key.py # standalone script to sanity-check an OpenTIP API key
-│   ├── dashboard.html         # same dashboard as index.html, for local dev via ws_server.py
+│   ├── dashboard.html         # local-dev dashboard w/ its own built-in login — served directly by ws_server.py
 │   ├── requirements.txt
 │   ├── setup_and_run_v2.ps1   # Windows one-shot setup + launch
 │   └── setup_and_run_v2.bat
@@ -211,6 +237,10 @@ to find committed sample data there; `seed_logs.py` creates it.
   polling fallback otherwise.
 - **Six dashboard views**: Overview, World Map, Credentials, Activity,
   Threats, Malware.
+- **Landing page, sign-in, and self-service sign-up** (`index.html`,
+  `signin.html`, `signup.html`) — a public front door for the dashboard,
+  separate from the dashboard app itself. Sign-up hits a `POST /api/register`
+  endpoint on `ws_server.py` and creates a `viewer`-role account.
 
 ### Configuring the backend
 
@@ -285,7 +315,14 @@ python honeypot.py
 
 `ws_server.py` prints the port it bound (it tries 8080 first, then falls
 back through a short list of alternates, then a random free port) — open
-that URL, not `dashboard.html` as a file. Run `python -m pyflakes backend/*.py
+that URL, not `dashboard.html` as a file. Note that this local-dev dashboard
+has its own built-in login screen and doesn't use `signin.html`/`signup.html`
+— those two are part of the Vercel-facing site (`index.html`, `signin.html`,
+`signup.html`, `dashboard.html` at the repo root), meant for people reaching
+your honeypot's dashboard over the internet, and they still work against
+this local `ws_server.py` if you'd rather test them: open `signin.html`
+directly and expand **Connect to a specific backend** to point it at
+whatever port `ws_server.py` printed. Run `python -m pyflakes backend/*.py
 api/*.py` before committing changes; the codebase is lint-clean and CI-worthy
 as of this revision.
 

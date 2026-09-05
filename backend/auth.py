@@ -3,6 +3,7 @@ import json
 import time
 import secrets
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -218,6 +219,68 @@ async def handle_logout(request: web.Request) -> web.Response:
     resp = web.Response(text='{"ok":true}', content_type="application/json",
                         headers={"Access-Control-Allow-Origin": "*"})
     resp.del_cookie("hw_token")
+    return resp
+
+
+_USERNAME_RE = re.compile(r"^[a-zA-Z0-9_.-]{3,32}$")
+
+# Reuses the same per-IP tracker as login to slow down account-creation spam.
+_REGISTER_MAX  = 10
+_REGISTER_SEC  = 3600
+
+
+async def handle_register(request: web.Request) -> web.Response:
+    """POST /api/register  { username, password }
+    Self-service signup for additional dashboard operators. New accounts get
+    the 'viewer' role — promote to 'admin' with `python auth.py passwd`/manual
+    edit of logs/auth_config.json if they need full access."""
+    ip = request.remote
+
+    fails = [t for t in _fail_tracker.get("register:" + ip, []) if time.time() - t < _REGISTER_SEC]
+    if len(fails) >= _REGISTER_MAX:
+        return web.Response(
+            status=429, content_type="application/json",
+            text=json.dumps({"error": "Too many signups from this address. Try again later."}),
+            headers={"Access-Control-Allow-Origin": "*"},
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return web.Response(status=400, text='{"error":"Invalid JSON"}',
+                            content_type="application/json")
+
+    username = body.get("username", "").strip()
+    password = body.get("password", "")
+
+    if not _USERNAME_RE.match(username):
+        return web.Response(
+            status=400, content_type="application/json",
+            text=json.dumps({"error": "Username must be 3-32 characters: letters, numbers, . _ -"}),
+        )
+    if len(password) < 8:
+        return web.Response(
+            status=400, content_type="application/json",
+            text=json.dumps({"error": "Password must be at least 8 characters"}),
+        )
+
+    if not add_user(username, password, role="viewer"):
+        _fail_tracker.setdefault("register:" + ip, []).append(time.time())
+        return web.Response(
+            status=409, content_type="application/json",
+            text=json.dumps({"error": "That username is already taken"}),
+        )
+
+    log.info("🆕 New account registered: %s from %s", username, ip)
+    token = create_token(username)
+    resp = web.Response(
+        text=json.dumps({"token": token, "username": username, "role": "viewer",
+                         "expires_in": TOKEN_TTL}),
+        content_type="application/json",
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
+    resp.set_cookie("hw_token", token, max_age=TOKEN_TTL,
+                    httponly=True, samesite="Strict")
     return resp
 
 
